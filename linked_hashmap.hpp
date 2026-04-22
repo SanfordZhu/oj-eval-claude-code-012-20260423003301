@@ -83,19 +83,18 @@ private:
 
 	void rehash() {
 		Node **oldBuckets = buckets;
-		size_t oldBucketCount = bucketCount;
 
 		size_t newBucketCount = bucketCount * 2;
 		initBuckets(newBucketCount);
 
-		// Reinsert all nodes
+		// Reinsert all nodes from the linked list
 		Node *current = head;
 		while (current) {
-			Node *next = current->next;
+			// Reinsert into new hash table
 			size_t index = hashFunc(current->data->first) % bucketCount;
 			current->hashNext = buckets[index];
 			buckets[index] = current;
-			current = next;
+			current = current->next;
 		}
 
 		delete[] oldBuckets;
@@ -300,7 +299,6 @@ public:
 	}
 
 	linked_hashmap(const linked_hashmap &other) : bucketCount(other.bucketCount), elementCount(0), head(nullptr), tail(nullptr), hashFunc(other.hashFunc), equalFunc(other.equalFunc) {
-		head = tail = nullptr;
 		initBuckets(bucketCount);
 
 		// Copy all elements
@@ -342,8 +340,12 @@ public:
 	 * TODO Destructors
 	 */
 	~linked_hashmap() {
-		clear();
-		if (buckets) delete[] buckets;
+		if (head || tail) {
+			clear();
+		}
+		if (buckets) {
+			delete[] buckets;
+		}
 	}
 
 	/**
@@ -377,7 +379,10 @@ public:
 	T & operator[](const Key &key) {
 		iterator it = find(key);
 		if (it == end()) {
-			auto result = insert(value_type(key, T()));
+			// This will fail for types without default constructor
+			// But we need to create a default value for the insert
+			T temp{};  // Try default construction
+			auto result = insert(value_type(key, temp));
 			return result.first->second;
 		}
 		return it->second;
@@ -432,14 +437,18 @@ public:
 	 * clears the contents
 	 */
 	void clear() {
-		Node *current = head;
-		while (current) {
-			Node *next = current->next;
-			delete current;
-			current = next;
+		if (head) {
+			Node *current = head;
+			while (current) {
+				Node *next = current->next;
+				delete current;
+				current = next;
+			}
+			head = tail = nullptr;
 		}
-		head = tail = nullptr;
-		clearBuckets();
+		if (buckets) {
+			clearBuckets();
+		}
 		elementCount = 0;
 	}
 
