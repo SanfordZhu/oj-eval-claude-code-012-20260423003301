@@ -45,11 +45,8 @@ private:
 		Node(const value_type &val, Node *p = nullptr, Node *n = nullptr, Node *h = nullptr)
 			: data(new value_type(val)), prev(p), next(n), hashNext(h) {}
 
-		// Special constructor for dummy nodes
-		Node(Node *p = nullptr, Node *n = nullptr) : data(nullptr), prev(p), next(n), hashNext(nullptr) {}
-
 		~Node() {
-			if (data) delete data;
+			delete data;
 		}
 	};
 
@@ -73,15 +70,11 @@ private:
 	}
 
 	void clearBuckets() {
-		if (!buckets) return;
 		for (size_t i = 0; i < bucketCount; ++i) {
 			Node *current = buckets[i];
 			while (current) {
 				Node *next = current->hashNext;
-				// Only delete if it has data (not a dummy node)
-				if (current->data) {
-					delete current;
-				}
+				delete current;
 				current = next;
 			}
 			buckets[i] = nullptr;
@@ -95,15 +88,14 @@ private:
 		size_t newBucketCount = bucketCount * 2;
 		initBuckets(newBucketCount);
 
-		for (size_t i = 0; i < oldBucketCount; ++i) {
-			Node *current = oldBuckets[i];
-			while (current) {
-				Node *next = current->hashNext;
-				size_t index = hashFunc(current->data->first) % bucketCount;
-				current->hashNext = buckets[index];
-				buckets[index] = current;
-				current = next;
-			}
+		// Reinsert all nodes
+		Node *current = head;
+		while (current) {
+			Node *next = current->next;
+			size_t index = hashFunc(current->data->first) % bucketCount;
+			current->hashNext = buckets[index];
+			buckets[index] = current;
+			current = next;
 		}
 
 		delete[] oldBuckets;
@@ -152,7 +144,7 @@ public:
 		 * TODO iter++
 		 */
 		iterator operator++(int) {
-			if (node == nullptr || node == map->tail || node->next == nullptr) {
+			if (node == nullptr) {
 				throw invalid_iterator();
 			}
 			iterator tmp = *this;
@@ -163,7 +155,7 @@ public:
 		 * TODO ++iter
 		 */
 		iterator & operator++() {
-			if (node == nullptr || node == map->tail || node->next == nullptr) {
+			if (node == nullptr) {
 				throw invalid_iterator();
 			}
 			node = node->next;
@@ -173,36 +165,28 @@ public:
 		 * TODO iter--
 		 */
 		iterator operator--(int) {
-			if (node == map->head || (node == nullptr && map->tail == nullptr)) {
+			if (node == nullptr || node == map->head) {
 				throw invalid_iterator();
 			}
-			if (node == nullptr) {
-				node = map->tail;
-			} else {
-				node = node->prev;
-			}
 			iterator tmp = *this;
+			node = node->prev;
 			return tmp;
 		}
 		/**
 		 * TODO --iter
 		 */
 		iterator & operator--() {
-			if (node == map->head || (node == nullptr && map->tail == nullptr)) {
+			if (node == nullptr || node == map->head) {
 				throw invalid_iterator();
 			}
-			if (node == nullptr) {
-				node = map->tail;
-			} else {
-				node = node->prev;
-			}
+			node = node->prev;
 			return *this;
 		}
 		/**
 		 * a operator to check whether two iterators are same (pointing to the same memory).
 		 */
 		value_type & operator*() const {
-			if (node == nullptr || node == map->head || node == map->tail || node->data == nullptr) {
+			if (node == nullptr) {
 				throw invalid_iterator();
 			}
 			return *(node->data);
@@ -224,7 +208,7 @@ public:
 		 * See <http://kelvinh.github.io/blog/2013/11/20/overloading-of-member-access-operator-dash-greater-than-symbol-in-cpp/> for help.
 		 */
 		value_type* operator->() const noexcept {
-			if (node == nullptr || node == map->head || node == map->tail || node->data == nullptr) {
+			if (node == nullptr) {
 				return nullptr;
 			}
 			return node->data;
@@ -252,7 +236,7 @@ public:
 		const_iterator(const iterator &other) : map(other.map), node(other.node) {}
 
 		const_iterator operator++(int) {
-			if (node == nullptr || node == map->tail || node->next == nullptr) {
+			if (node == nullptr) {
 				throw invalid_iterator();
 			}
 			const_iterator tmp = *this;
@@ -260,37 +244,29 @@ public:
 			return tmp;
 		}
 		const_iterator & operator++() {
-			if (node == nullptr || node == map->tail || node->next == nullptr) {
+			if (node == nullptr) {
 				throw invalid_iterator();
 			}
 			node = node->next;
 			return *this;
 		}
 		const_iterator operator--(int) {
-			if (node == map->head || (node == nullptr && map->tail == nullptr)) {
+			if (node == nullptr || node == map->head) {
 				throw invalid_iterator();
 			}
-			if (node == nullptr) {
-				node = map->tail;
-			} else {
-				node = node->prev;
-			}
 			const_iterator tmp = *this;
+			node = node->prev;
 			return tmp;
 		}
 		const_iterator & operator--() {
-			if (node == map->head || (node == nullptr && map->tail == nullptr)) {
+			if (node == nullptr || node == map->head) {
 				throw invalid_iterator();
 			}
-			if (node == nullptr) {
-				node = map->tail;
-			} else {
-				node = node->prev;
-			}
+			node = node->prev;
 			return *this;
 		}
 		const value_type & operator*() const {
-			if (node == nullptr || node == map->head || node == map->tail || node->data == nullptr) {
+			if (node == nullptr) {
 				throw invalid_iterator();
 			}
 			return *(node->data);
@@ -308,7 +284,7 @@ public:
 			return node != rhs.node;
 		}
 		const value_type* operator->() const noexcept {
-			if (node == nullptr || node == map->head || node == map->tail || node->data == nullptr) {
+			if (node == nullptr) {
 				return nullptr;
 			}
 			return node->data;
@@ -319,22 +295,19 @@ public:
 	 * TODO two constructors
 	 */
 	linked_hashmap() : bucketCount(16), elementCount(0), head(nullptr), tail(nullptr), hashFunc(Hash()), equalFunc(Equal()) {
-		head = new Node();
-		tail = new Node();
-		head->next = tail;
-		tail->prev = head;
+		head = tail = nullptr;
 		initBuckets(bucketCount);
 	}
 
 	linked_hashmap(const linked_hashmap &other) : bucketCount(other.bucketCount), elementCount(0), head(nullptr), tail(nullptr), hashFunc(other.hashFunc), equalFunc(other.equalFunc) {
-		head = new Node();
-		tail = new Node();
-		head->next = tail;
-		tail->prev = head;
+		head = tail = nullptr;
 		initBuckets(bucketCount);
 
-		for (Node *curr = other.head->next; curr != other.tail; curr = curr->next) {
+		// Copy all elements
+		Node *curr = other.head;
+		while (curr) {
 			insert(*(curr->data));
+			curr = curr->next;
 		}
 	}
 
@@ -345,27 +318,21 @@ public:
 		if (this == &other) {
 			return *this;
 		}
-		// Clear existing data
-		if (head && tail) {
-			clear();
-			delete head;
-			delete tail;
-		}
+		clear();
 		if (buckets) delete[] buckets;
 
-		// Copy from other
 		bucketCount = other.bucketCount;
 		elementCount = 0;
 		hashFunc = other.hashFunc;
 		equalFunc = other.equalFunc;
-		head = new Node();
-		tail = new Node();
-		head->next = tail;
-		tail->prev = head;
+		head = tail = nullptr;
 		initBuckets(bucketCount);
 
-		for (Node *curr = other.head->next; curr != other.tail; curr = curr->next) {
+		// Copy all elements
+		Node *curr = other.head;
+		while (curr) {
 			insert(*(curr->data));
+			curr = curr->next;
 		}
 
 		return *this;
@@ -375,11 +342,7 @@ public:
 	 * TODO Destructors
 	 */
 	~linked_hashmap() {
-		if (head && tail) {
-			clear();
-			delete head;
-			delete tail;
-		}
+		clear();
 		if (buckets) delete[] buckets;
 	}
 
@@ -431,11 +394,11 @@ public:
 	 * return a iterator to the beginning
 	 */
 	iterator begin() {
-		return iterator(this, head->next);
+		return iterator(this, head);
 	}
 
 	const_iterator cbegin() const {
-		return const_iterator(this, head->next);
+		return const_iterator(this, head);
 	}
 
 	/**
@@ -443,11 +406,11 @@ public:
 	 * in fact, it returns past-the-end.
 	 */
 	iterator end() {
-		return iterator(this, tail);
+		return iterator(this, nullptr);
 	}
 
 	const_iterator cend() const {
-		return const_iterator(this, tail);
+		return const_iterator(this, nullptr);
 	}
 
 	/**
@@ -469,19 +432,14 @@ public:
 	 * clears the contents
 	 */
 	void clear() {
-		if (head && tail) {
-			Node *current = head->next;
-			while (current != tail) {
-				Node *next = current->next;
-				delete current;
-				current = next;
-			}
-			head->next = tail;
-			tail->prev = head;
+		Node *current = head;
+		while (current) {
+			Node *next = current->next;
+			delete current;
+			current = next;
 		}
-		if (buckets) {
-			clearBuckets();
-		}
+		head = tail = nullptr;
+		clearBuckets();
 		elementCount = 0;
 	}
 
@@ -512,10 +470,13 @@ public:
 		buckets[index] = newNode;
 
 		// Insert into linked list
-		newNode->prev = tail->prev;
-		newNode->next = tail;
-		tail->prev->next = newNode;
-		tail->prev = newNode;
+		if (!head) {
+			head = tail = newNode;
+		} else {
+			tail->next = newNode;
+			newNode->prev = tail;
+			tail = newNode;
+		}
 
 		elementCount++;
 		return pair<iterator, bool>(iterator(this, newNode), true);
@@ -527,7 +488,7 @@ public:
 	 * throw if pos pointed to a bad element (pos == this->end() || pos points an element out of this)
 	 */
 	void erase(iterator pos) {
-		if (pos == end() || pos.node == nullptr || pos.node == head || pos.node == tail) {
+		if (pos == end() || pos.node == nullptr) {
 			throw invalid_iterator();
 		}
 
@@ -545,8 +506,17 @@ public:
 		}
 
 		// Remove from linked list
-		target->prev->next = target->next;
-		target->next->prev = target->prev;
+		if (target->prev) {
+			target->prev->next = target->next;
+		} else {
+			head = target->next;
+		}
+
+		if (target->next) {
+			target->next->prev = target->prev;
+		} else {
+			tail = target->prev;
+		}
 
 		delete target;
 		elementCount--;
@@ -572,7 +542,7 @@ public:
 		size_t index = hashFunc(key) % bucketCount;
 		Node *current = buckets[index];
 		while (current != nullptr) {
-			if (current->data && equalFunc(current->data->first, key)) {
+			if (equalFunc(current->data->first, key)) {
 				return iterator(this, current);
 			}
 			current = current->hashNext;
@@ -584,7 +554,7 @@ public:
 		size_t index = hashFunc(key) % bucketCount;
 		Node *current = buckets[index];
 		while (current != nullptr) {
-			if (current->data && equalFunc(current->data->first, key)) {
+			if (equalFunc(current->data->first, key)) {
 				return const_iterator(this, current);
 			}
 			current = current->hashNext;
