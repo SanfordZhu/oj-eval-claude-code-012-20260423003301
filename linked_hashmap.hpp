@@ -294,7 +294,6 @@ public:
 	 * TODO two constructors
 	 */
 	linked_hashmap() : bucketCount(16), elementCount(0), head(nullptr), tail(nullptr), hashFunc(Hash()), equalFunc(Equal()) {
-		head = tail = nullptr;
 		initBuckets(bucketCount);
 	}
 
@@ -317,7 +316,10 @@ public:
 			return *this;
 		}
 		clear();
-		if (buckets) delete[] buckets;
+		if (buckets) {
+			delete[] buckets;
+			buckets = nullptr;
+		}
 
 		bucketCount = other.bucketCount;
 		elementCount = 0;
@@ -340,9 +342,7 @@ public:
 	 * TODO Destructors
 	 */
 	~linked_hashmap() {
-		if (head || tail) {
-			clear();
-		}
+		clear();
 		if (buckets) {
 			delete[] buckets;
 		}
